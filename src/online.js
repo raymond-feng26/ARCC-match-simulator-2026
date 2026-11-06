@@ -89,6 +89,7 @@ export const SETTING_DEFAULTS = (sim) => ({
   limbo: { ...sim.sentryLimbo }, retreatPct: Math.round(sim.sentryAuto.retreatHp * 100), patrolSpeed: sim.sentryAuto.speed,
   spin: sim.sentryAuto.spin,
   autoSentry: { red: true, blue: true },   // an empty Sentry seat drives itself (room setting, host only)
+  heroSize: sim.heroSize,                  // built in when each computer makes its Sim (main.js)
 });
 
 export function applySettings(sim, s = {}) {

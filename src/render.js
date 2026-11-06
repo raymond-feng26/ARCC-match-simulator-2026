@@ -82,8 +82,8 @@ function omniWheel(mat, rollerMat) {
   return g;   // wheel axis = local y
 }
 
-function buildRobot(role, team) {
-  const c = ROBOTS[role], teamColor = TEAM[team];
+function buildRobot(c, role, team) {   // c: the robot's class (sizes; the Hero's can be scaled)
+  const teamColor = TEAM[team];
   const [L, W, zb, zt] = c.chassis, [uL, uW, uTop] = c.upper;
   const root = new THREE.Group();
   const dark = std(0x2b2d31), plate = std(0x4d525a), metal = std(0x9aa0a8, { metalness: 0.5, roughness: 0.4 });
@@ -191,6 +191,9 @@ function buildTarget() {
 }
 
 const QUAD_GAP = 3;   // px between split-screen views
+const CHASE_FOV = 48, FPV_FOV = 65;   // deg, vertical
+// 'follow:KEY' (chase camera) and 'fpv:KEY' (first person) both track robot KEY
+export const viewKey = (mode) => (/^(follow|fpv):/.test(mode) ? mode.slice(mode.indexOf(':') + 1) : null);
 
 export class View {
   // noGL: build and update the scene without a renderer (checks without a GPU).
@@ -254,9 +257,11 @@ export class View {
 
   setViewMode(v, mode) {
     v.mode = mode;
-    const follow = mode.startsWith('follow:');
+    const follow = !!viewKey(mode);
     v.controls.enabled = !follow;
     v.el.classList.toggle('follow', follow);
+    v.camera.fov = mode.startsWith('fpv:') ? FPV_FOV : CHASE_FOV;
+    v.camera.updateProjectionMatrix();
     if (mode === 'overview') { v.camera.position.set(6, -6.2, 8.4); v.controls.target.set(6, 3.7, 0); }
     if (mode === 'top') { v.camera.position.set(6, 3.98, 15.5); v.controls.target.set(6, 4, 0); }
     v.snap = true;   // a follow camera jumps to its robot instead of gliding there
@@ -292,7 +297,7 @@ export class View {
 
   // Axes for driving a robot: those of the view that follows it, else of the first view.
   axesFor(key) {
-    const i = this.viewports.findIndex((v) => v.mode === `follow:${key}`);
+    const i = this.viewports.findIndex((v) => viewKey(v.mode) === key);
     return this.screenAxes(Math.max(0, i));
   }
   buildField() {
@@ -390,7 +395,7 @@ export class View {
     this.aimLines = {};
     for (const key of sim.keys) {
       const r = sim.robots[key];
-      this.robots[key] = buildRobot(r.role, r.team);
+      this.robots[key] = buildRobot(r.cls, r.role, r.team);
       this.scene.add(this.robots[key].root);
       if (r.cls.launcher) {   // aiming by hand: where the barrel points
         const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
@@ -506,9 +511,9 @@ export class View {
       this.renderer.setScissor(x, H - y - h, w, h);
       // a chase camera sits right behind its robot's number and HP bar, and robots between it and
       // the camera would fill the view with theirs: hide those in that view
-      const hide = [], me = v.mode.startsWith('follow:') ? this.robots[v.mode.slice(7)] : null;
-      if (me) {
-        const dMe = me.root.position.distanceTo(v.camera.position) + 0.3;
+      const hide = [], me = viewKey(v.mode) ? this.robots[viewKey(v.mode)] : null;
+      if (me) {   // first person: also robots close by (their labels would fill the view)
+        const dMe = v.mode.startsWith('fpv:') ? 2.5 : me.root.position.distanceTo(v.camera.position) + 0.3;
         for (const rv of Object.values(this.robots)) if (rv === me || rv.root.position.distanceTo(v.camera.position) < dMe) hide.push(rv);
       }
       for (const rv of hide) rv.label.visible = rv.hp.sprite.visible = false;
@@ -518,11 +523,25 @@ export class View {
   }
 
   // Chase camera behind the robot's view (gimbal) heading: steady while the chassis spins.
+  // First person: just above the gimbal, looking along the view heading (a shooter's barrel shows
+  // below; when auto-aim locks on it turns to the target), or for the Engineer (no gimbal) on the
+  // lift carriage, turning with the chassis, 0.25 m above the claw and tilted down so the claw stays
+  // in view at any height and reach. Kept level on slopes.
   followCamera(sim, v) {
-    if (!v.mode.startsWith('follow:')) return;
-    const r = sim.robots[v.mode.slice(7)];
+    const key = viewKey(v.mode), r = key ? sim.robots[key] : null;
     if (!r) return;
-    const p = r.body.translation(), yaw = r.viewYaw;
+    const p = r.body.translation();
+    if (v.mode.startsWith('fpv:')) {
+      const gimbal = !!r.cls.launcher, yaw = gimbal ? r.viewYaw : yawOf(r.body.rotation());
+      const c = Math.cos(yaw), s = Math.sin(yaw), ahead = gimbal ? 0 : r.cls.chassis[0] / 2 - 0.1;
+      const z = p.z + (gimbal ? r.cls.upper[2] + 0.03 : r.lift + 0.25), pitch = gimbal ? -0.05 : -0.45;
+      const x = p.x + ahead * c, y = p.y + ahead * s;
+      v.camera.position.set(x, y, z);
+      v.camera.lookAt(x + 5 * Math.cos(pitch) * c, y + 5 * Math.cos(pitch) * s, z + 5 * Math.sin(pitch));
+      v.snap = true;   // back to a chase view: jump, do not glide
+      return;
+    }
+    const yaw = r.viewYaw;
     const want = new THREE.Vector3(p.x - 2.4 * Math.cos(yaw), p.y - 2.4 * Math.sin(yaw), p.z + 1.7);
     if (v.snap) v.camera.position.copy(want); else v.camera.position.lerp(want, 0.12);
     v.snap = false;

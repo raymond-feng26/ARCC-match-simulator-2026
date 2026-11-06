@@ -66,6 +66,8 @@ export class Sim {
     const sl = options.sentryLimbo;
     this.sentryLimbo = typeof sl === 'object' && sl ? { red: !!sl.red, blue: !!sl.blue } : { red: !!sl, blue: !!sl };
     this.sentryLockM = SHOOT.sentryLockM;   // UI setting: a Sentry on Auto locks on only this close (all round)
+    // Hero footprint (m, square; height and mass stay): built into the robot, so it takes effect on reset
+    this.heroSize = options.heroSize > 0 ? +options.heroSize : ROBOTS.hero.chassis[0];
     this.reset();
   }
 
@@ -134,7 +136,7 @@ export class Sim {
 
   makeRobot(key) {
     const [team, role] = key.split('_');
-    const R = this.R, c = ROBOTS[role];
+    const R = this.R, c = role === 'hero' ? this.heroClass() : ROBOTS[role];
     const [L, Wd, zb, zt] = c.chassis, [uL, uW, uTop] = c.upper;
     const [x, y, yawDeg] = spawnOf(key), yaw = (yawDeg * Math.PI) / 180;
     const body = this.world.createRigidBody(R.RigidBodyDesc.dynamic()
@@ -161,6 +163,12 @@ export class Sim {
       spin: false, lastBuy: -1e9, auto: { state: 'heal', idx: 0, path: null, stopped: false }, autoOn: false,
       grab: null, fireNote: '', releaseBlockedAt: -1e9, underLimbo: false, onBarrel: null,
     };
+  }
+
+  // The Hero class at this.heroSize: chassis and upper body scaled in length and width.
+  heroClass() {
+    const H = ROBOTS.hero, k = this.heroSize / H.chassis[0];
+    return { ...H, chassis: [H.chassis[0] * k, H.chassis[1] * k, H.chassis[2], H.chassis[3]], upper: [H.upper[0] * k, H.upper[1] * k, H.upper[2]] };
   }
 
   makeTarget(t) {
@@ -618,10 +626,10 @@ export class Sim {
       const e = this.robots[key];
       if (e.team === r.team || !e.alive || this.t < e.invincibleUntil) continue;
       const p = e.body.translation();
-      out.push({ ref: e, robot: true, name: this.name(e), x: p.x, y: p.y, z: p.z + e.cls.chassis[2] + 0.12, body: e.body });
+      out.push({ ref: e, robot: true, name: this.name(e), x: p.x, y: p.y, z: p.z + e.cls.chassis[2] + 0.12, body: e.body, half: e.cls.chassis[1] / 2 });
     }
     if (r.team === 'red') {
-      for (const t of this.targets) if (t.alive) out.push({ ref: t, robot: false, name: t.name, x: t.x, y: t.y, z: t.z + 0.25, body: t.body });
+      for (const t of this.targets) if (t.alive) out.push({ ref: t, robot: false, name: t.name, x: t.x, y: t.y, z: t.z + 0.25, body: t.body, half: 0.275 });
     }
     return out;
   }
@@ -661,11 +669,11 @@ export class Sim {
     const err = wrap(want - r.turretYaw);
     r.turretYaw = wrap(r.turretYaw + clamp(err, -12 * dt, 12 * dt));
     let onBarrel = null;
-    if (!best && !auto) {   // by hand: the barrel within an enemy's half width (~0.3 m) of its centre
+    if (!best && !auto) {   // by hand: the barrel within an enemy's half width of its centre (bigger robot: easier)
       let bd = c.rangeM;
       for (const e of enemies) {
         const d = dist(e);
-        if (d < bd && Math.abs(wrap(bearing(e) - r.turretYaw)) <= Math.atan2(0.3, d) && this.lineOfSight(r, e)) { onBarrel = e; bd = d; }
+        if (d < bd && Math.abs(wrap(bearing(e) - r.turretYaw)) <= Math.atan2(e.half, d) && this.lineOfSight(r, e)) { onBarrel = e; bd = d; }
       }
     }
     r.onBarrel = onBarrel;

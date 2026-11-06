@@ -645,5 +645,24 @@ export async function runTests(RAPIER) {
       detail: `Red Sentry (off): ${c.red_sentry.auto ? 'Auto' : 'stays'}, Blue Sentry (on): ${c.blue_sentry.auto ? 'Auto' : 'stays'}, empty Hero: ${c.red_hero.auto ? 'Auto' : 'stays'}` };
   }, '3v3');
 
+  test('hero size: a 0.825 m Hero (1.5x Sentry) is built that size and still gets out of its Resupply Zone', (sim) => {
+    const x = new Sim(sim.R, { random: seeded(5), mode: 'targets', heroSize: 0.825 });
+    x.place('red_engineer', 4.0, 6.6, 0);
+    x.place('red_sentry', 4.0, 5.2, 0);
+    const h = x.robots.red_hero, size = h.cls.chassis[0];
+    // up, then east through the 0.915 m gap between the side wall end (y 3.915) and the Side High Ground (y 3.0)
+    const wps = [[1.1, 3.46], [2.7, 3.46], [3.8, 3.8]];
+    let k = 0, t = 0;
+    for (; t < 15 && k < wps.length; t += PHYSICS.dt) {
+      const p = h.body.translation(), [wx, wy] = wps[k], d = Math.hypot(wx - p.x, wy - p.y);
+      if (d < 0.12) { k += 1; continue; }
+      x.step({ red_hero: cmd({ mx: ((wx - p.x) / d) * 0.4, my: ((wy - p.y) / d) * 0.4 }) });
+    }
+    const out2 = { size, k, t, limited: x.limited.robot };
+    x.world.free();
+    return { pass: Math.abs(size - 0.825) < 1e-9 && out2.k === 3 && out2.limited === 0,
+      detail: `Hero footprint ${size.toFixed(3)} m; out of the base through the 0.915 m gap: ${out2.k === 3 ? `yes, ${out2.t.toFixed(1)} s` : 'no'}` };
+  });
+
   return out;
 }

@@ -51,7 +51,8 @@ function runGame(sim, { layout = null, net = null } = {}) {
   else if (me) view.setMode(`follow:${me}`);
   view.attach(sim);
   let paused = false, stopped = false;
-  const CAMERAS = () => (net && !spectator ? ['overview', 'top', `follow:${me}`] : ['overview', 'top', ...sim.keys.map((k) => `follow:${k}`)]);
+  const CAMERAS = () => (net && !spectator ? ['overview', 'top', `follow:${me}`, `fpv:${me}`]
+    : ['overview', 'top', ...sim.keys.map((k) => `follow:${k}`), ...(view instanceof View2D ? [] : sim.keys.map((k) => `fpv:${k}`))]);
 
   const app = {
     sim: () => sim,
@@ -178,7 +179,7 @@ function startOnline() {
     },
     onGame: (msg, conn) => {
       game?.stop();
-      const sim = new Sim(RAPIER, { mode: '3v3' });
+      const sim = new Sim(RAPIER, { mode: '3v3', heroSize: msg.settings?.heroSize });   // same size on every computer
       applySettings(sim, msg.settings);
       const mine = Object.entries(msg.seats).find(([, s]) => s.id === conn.you)?.[0] ?? null;
       const me = mine && !mine.startsWith('spec') ? mine : null;

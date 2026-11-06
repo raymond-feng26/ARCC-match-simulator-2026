@@ -87,6 +87,8 @@
   .quadmode .sideshow { top: auto; bottom: 10px; }
   .hide-panels .sideshow { display: none; }
   .quadhud.single .quadcam { display: none; }   /* one view: the camera choice is in the top bar */
+  .crosshair { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: none; z-index: 5;
+    background: linear-gradient(#7dff7a, #7dff7a) center / 2px 100% no-repeat, linear-gradient(#7dff7a, #7dff7a) center / 100% 2px no-repeat; opacity: 0.7; }
   .hostnote { margin-top: 4px; font-size: 11px; color: var(--warn); }
   /* online room screen */
   #lobby { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 30px 12px; box-sizing: border-box; }

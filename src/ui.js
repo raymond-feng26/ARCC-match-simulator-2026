@@ -20,6 +20,7 @@ const KEY_NAMES = { Comma: ',', Period: '.', Semicolon: ';', Slash: '/', Quote: 
   Backslash: '\\', ShiftLeft: 'Shift L', ShiftRight: 'Shift R', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
 const keyName = (code) => KEY_NAMES[code] ?? code.replace(/^Key/, '');
 const robotName = (key) => { const [team, role] = key.split('_'); return `${teamName(team)} ${ROBOTS[role].name}`; };
+const viewKey = (mode) => (/^(follow|fpv):/.test(mode) ? mode.slice(mode.indexOf(':') + 1) : null);
 const bindingName = (b) => BINDINGS.find(([v]) => v === b)?.[1] ?? b;
 // supercapacitor: stored energy and the chassis power drawn now (above the limit = from the capacitor)
 const capText = (r) => `capacitor ${Math.round((100 * r.cap) / DRIVE.capJ)}% · ${Math.round(r.powerW)} / ${r.cls.powerW} W`;
@@ -77,10 +78,13 @@ export class UI {
   }
 
   cameraOptions() {
+    const me = this.online?.me;
     if (this.online && !this.online.spectator) {   // a player: the whole field or the own robot
-      return [['overview', 'Overview'], ['top', 'Top'], ...(this.online.me ? [[`follow:${this.online.me}`, `My ${robotName(this.online.me)}`]] : [])];
+      return [['overview', 'Overview'], ['top', 'Top'], ...(me ? [[`follow:${me}`, `My ${robotName(me)}`], [`fpv:${me}`, `My ${robotName(me)}, first person`]] : [])];
     }
-    return [['overview', 'Overview'], ['top', 'Top'], ...this.app.sim().keys.map((k) => [`follow:${k}`, `Follow ${robotName(k)}`])];
+    const keys = this.app.sim().keys;
+    return [['overview', 'Overview'], ['top', 'Top'], ...keys.map((k) => [`follow:${k}`, `Follow ${robotName(k)}`]),
+      ...(this.flat ? [] : keys.map((k) => [`fpv:${k}`, `First person: ${robotName(k)}`]))];
   }
 
   top() {
@@ -184,6 +188,7 @@ export class UI {
   // Split screen: camera choice and the followed robot's status in each view.
   layoutChanged() {
     for (const q of this.quads) q.el.remove();
+    for (const c of this.crosses ?? []) c.remove();
     const view = this.app.view();
     this.layoutSelect.value = view.layout;
     this.cameraSelect.style.display = this.flat || view.layout === 'quad' ? 'none' : '';
@@ -198,6 +203,8 @@ export class UI {
       this.root.append(q.el);
       return q;
     });
+    // first person: a crosshair at the middle of the view (where the barrel points when nothing is locked)
+    this.crosses = view.viewports.map(() => { const c = el('div', { class: 'crosshair hidden' }); this.root.append(c); return c; });
     this.root.classList.toggle('quadmode', view.layout === 'quad');
     this.toggleCards(view.layout !== 'quad' && !this.online);
     this.placeQuads();
@@ -205,6 +212,10 @@ export class UI {
 
   placeQuads() {
     const vps = this.app.view().viewports;
+    (this.crosses ?? []).forEach((c, i) => {
+      const [x, y, w, h] = vps[i].rect;
+      Object.assign(c.style, { left: `${x + w / 2}px`, top: `${y + h / 2}px` });
+    });
     this.quads.forEach((q, i) => {
       const [x, y, w, h] = vps[i].rect;
       Object.assign(q.el.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
@@ -252,6 +263,7 @@ export class UI {
         ...['red', 'blue'].filter((t) => sim.keys.includes(`${t}_sentry`)).map((t) =>
           check(` ${teamName(t)} Sentry passes under the Limbo Bars`, () => this.app.sim().sentryLimbo[t], (v) => { this.app.sim().sentryLimbo[t] = v; })),
         num('Sentry Auto lock range m ', () => this.app.sim().sentryLockM, (v) => { this.app.sim().sentryLockM = Math.max(0, v); }, 0.5),
+        num('Hero footprint m (0.825 = 1.5× Sentry; Reset applies) ', () => this.app.sim().heroSize, (v) => { this.app.sim().heroSize = Math.min(1.2, Math.max(0.4, v)); }, 0.025),
         el('div', { class: 'sub' }, 'Sentry auto (both sentries)'),
         num('retreat below HP % ', () => A.retreatHp * 100, (v) => { this.app.sim().sentryAuto.retreatHp = v / 100; }, 5),
         num('patrol speed m/s ', () => A.speed, (v) => { this.app.sim().sentryAuto.speed = v; }, 0.1),
@@ -376,11 +388,12 @@ export class UI {
     }
     const vps = this.app.view().viewports;
     this.quads.forEach((q, i) => {
-      const mode = vps[i].mode, key = mode.startsWith('follow:') ? mode.slice(7) : null;
+      const mode = vps[i].mode, key = viewKey(mode);
       if (q.sel.value !== mode) q.sel.value = mode;
       q.strip.style.display = key ? '' : 'none';
       if (key) q.strip.replaceChildren(...this.stripNodes(sim, sim.robots[key]));
     });
+    (this.crosses ?? []).forEach((c, i) => c.classList.toggle('hidden', !vps[i]?.mode.startsWith('fpv:')));
     this.targetsEl.replaceChildren(...sim.targets.map((t) => el('div', { class: 'line' },
       `${t.name}: ${t.alive ? `${t.hp} / ${t.maxHp}` : `down, back in ${Math.max(0, t.respawnAt - sim.t).toFixed(0)} s`}`)));
     this.padsEl.replaceChildren(...this.pads(sim));
