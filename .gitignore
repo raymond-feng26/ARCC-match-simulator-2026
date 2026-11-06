@@ -1,0 +1,7 @@
+# local deploy state: Vercel project link, Wrangler cache (holds the Cloudflare account) and local dev data
+.vercel/
+.wrangler/
+# secrets / environment files (never commit tokens)
+.env*
+node_modules/
+.DS_Store

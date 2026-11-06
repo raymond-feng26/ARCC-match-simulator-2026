@@ -1,0 +1,3 @@
+# server code (local room server, Cloudflare Worker) and repo docs: not part of the static site
+net/
+docs/
