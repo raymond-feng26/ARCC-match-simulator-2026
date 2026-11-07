@@ -23,6 +23,7 @@ export const ROBOTS = {
   hero: {
     id: 1, name: 'Hero', maxHp: 350, powerW: 80, launcher: '42',
     heatMax: 200, coolPerSec: 24, fireRateHz: 2, ammo: 0, rangeM: 9,
+    gimbalYawRate: 12,                           // rad/s (GUESS)
     mass: 30,                                    // GUESS (limit 39 kg)
     chassis: [0.65, 0.65, 0.015, 0.24],          // GUESS length, width, skirt bottom, top
     upper: [0.36, 0.36, 0.55],                   // GUESS length, width, top (height)
@@ -38,6 +39,7 @@ export const ROBOTS = {
   sentry: {
     id: 7, name: 'Sentry', maxHp: 400, powerW: 80, launcher: '17',
     heatMax: 260, coolPerSec: 30, fireRateHz: 15, ammo: 750, rangeM: 8,
+    gimbalYawRate: 8.2,                          // rad/s, measured 2026-11-07: 10 turns in 7.7 s
     mass: 26,                                    // GUESS (limit 28 kg)
     chassis: [0.55, 0.55, 0.015, 0.20],          // skirt ~15 mm (team: the sentry has a skirt)
     upper: [0.30, 0.30, 0.57],                   // robot.yaml robot_height 0.57
@@ -86,7 +88,7 @@ export const TARGET_RESPAWN_S = 10;
 export const SENTRY_AUTO = {
   patrol: [[3.6, 3.5], [5.3, 2.2], [5.3, 5.2], [3.6, 5.2]],
   homeSpot: [0.6, 1.5],     // in the Resupply Zone, clear of the Hero and Engineer start spots; the way there is planned
-  speed: 1.5,
+  speed: 2.0,               // m/s, = the real Sentry's navigation limit (robot.yaml max_speed, 2026-11-07)
   retreatHp: 0.25,          // team decision 2026-11-05: retreat at 25 % HP
   leaveHealedAt: 0.95,
   stopGap: 0.35,            // m between bodies along the travel direction

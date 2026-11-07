@@ -667,7 +667,8 @@ export class Sim {
     r.aimTarget = best;
     const want = best ? bearing(best) : r.viewYaw;
     const err = wrap(want - r.turretYaw);
-    r.turretYaw = wrap(r.turretYaw + clamp(err, -12 * dt, 12 * dt));
+    const yawStep = (c.gimbalYawRate ?? 12) * dt;
+    r.turretYaw = wrap(r.turretYaw + clamp(err, -yawStep, yawStep));
     let onBarrel = null;
     if (!best && !auto) {   // by hand: the barrel within an enemy's half width of its centre (bigger robot: easier)
       let bd = c.rangeM;

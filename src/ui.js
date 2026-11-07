@@ -212,6 +212,7 @@ export class UI {
 
   placeQuads() {
     const vps = this.app.view().viewports;
+    if (!vps[0]?.rect) return;   // the 2D view has one viewport filling the page and no first person
     (this.crosses ?? []).forEach((c, i) => {
       const [x, y, w, h] = vps[i].rect;
       Object.assign(c.style, { left: `${x + w / 2}px`, top: `${y + h / 2}px` });

@@ -1,7 +1,7 @@
 // Headless scenarios: each builds its own Sim (no rendering) and checks one behaviour.
 // Run from the page: matchSim.runTests(), or open index.html?test.
 import { Sim, ZERO_CMD, spawnOf } from './sim.js';
-import { PHYSICS, ROBOTS } from './params.js';
+import { PHYSICS, ROBOTS, SENTRY_AUTO } from './params.js';
 import { quatFromYaw } from './geom.js';
 import { HostSession } from './online.js';
 
@@ -498,8 +498,9 @@ export async function runTests(RAPIER) {
       if (seen[seen.length - 1] !== st) seen.push(st);
       if (r.weakened && x.t - r.lastShot < PHYSICS.dt / 2) firedWeakened = true;
     });
-    const r = sim.robots.red_sentry, p = pos(sim, 'red_sentry');
-    return { pass: seen.join(' ').startsWith('defeated home heal') && seen.includes('patrol') && !r.weakened && !firedWeakened && p.y > 2.5,
+    // out on patrol = well away from the home spot (patrol points can be as low as y 2.2)
+    const r = sim.robots.red_sentry, p = pos(sim, 'red_sentry'), [hx, hy] = SENTRY_AUTO.homeSpot;
+    return { pass: seen.join(' ').startsWith('defeated home heal') && seen.includes('patrol') && !r.weakened && !firedWeakened && Math.hypot(p.x - hx, p.y - hy) > 2,
       detail: `states ${seen.join(' -> ')}; now HP ${Math.round(r.hp)}, weakened ${r.weakened}, at (${p.x.toFixed(2)}, ${p.y.toFixed(2)}); fired while weakened ${firedWeakened}` };
   }, '3v3');
 
