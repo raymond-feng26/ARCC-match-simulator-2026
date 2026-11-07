@@ -665,5 +665,26 @@ export async function runTests(RAPIER) {
       detail: `Hero footprint ${size.toFixed(3)} m; out of the base through the 0.915 m gap: ${out2.k === 3 ? `yes, ${out2.t.toFixed(1)} s` : 'no'}` };
   });
 
+  test('aim: holding fire, the view turns with the gimbal to a locked target and stays; the stick turns away', (sim) => {
+    sim.place('blue_engineer', 8.0, 5.6, 180);   // the other Blue robots out of the way
+    sim.place('blue_sentry', 8.0, 3.3, 180);
+    sim.place('red_hero', 5.0, 0.6, 0);
+    sim.place('blue_hero', 6.5, 1.6, 180);   // 1.8 m away, 34 deg left of the view
+    const h = sim.robots.red_hero, bearing = Math.atan2(1.0, 1.5);
+    run(sim, 0.2);
+    const before = h.viewYaw;
+    run(sim, 1, () => ({ red_hero: cmd({ action: true }) }));
+    const locked = h.viewYaw;
+    sim.place('blue_hero', 10.5, 6.5, 180);   // gone
+    run(sim, 1, () => ({ red_hero: cmd({ action: true }) }));
+    const after = h.viewYaw;
+    sim.place('blue_hero', 6.5, 1.6, 180);
+    run(sim, 0.5, () => ({ red_hero: cmd({ action: true }) }));
+    run(sim, 0.4, () => ({ red_hero: cmd({ action: true, rot: -1 }) }));   // turn right, away from it
+    const turned = h.viewYaw, lock = h.aimTarget;
+    return { pass: Math.abs(before) < 0.01 && Math.abs(locked - bearing) < 0.05 && Math.abs(after - bearing) < 0.05 && turned < bearing - 1 && !lock,
+      detail: `view ${(before * 57.3).toFixed(0)}° -> ${(locked * 57.3).toFixed(0)}° on the target (${(bearing * 57.3).toFixed(0)}°), stays ${(after * 57.3).toFixed(0)}° after it left; stick: view ${(turned * 57.3).toFixed(0)}°, lock ${lock ? 'kept' : 'released'}` };
+  }, '3v3');
+
   return out;
 }

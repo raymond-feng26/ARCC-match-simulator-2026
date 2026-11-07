@@ -669,6 +669,10 @@ export class Sim {
     const err = wrap(want - r.turretYaw);
     const yawStep = (c.gimbalYawRate ?? 12) * dt;
     r.turretYaw = wrap(r.turretYaw + clamp(err, -yawStep, yawStep));
+    // A player's view rides on the gimbal: while fire is held and auto-aim has a target, the view (so
+    // the cameras and the chassis) turns with the gimbal and stays there afterwards, as on a real
+    // robot. Turning the stick wins, and moving the target out of the cone ends the lock.
+    if (best && !auto && cmd.action && Math.abs(cmd.rot) < 0.05) r.viewYaw = r.turretYaw;
     let onBarrel = null;
     if (!best && !auto) {   // by hand: the barrel within an enemy's half width of its centre (bigger robot: easier)
       let bd = c.rangeM;
